@@ -1,0 +1,22 @@
+{
+  "name": "transin",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@volcengine/openapi": "^1.27.1",
+    "flat-cache": "^6.1.6",
+    "node-screenshots": "^0.2.1",
+    "socket.io": "^4.8.1",
+    "tesseract.js": "^6.0.0"
+  }
+}
