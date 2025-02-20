@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import './styles.css'
 import { socket } from '../../io'
+import { WEB_SERVER_PORT } from '../../../../src/constant'
 
 function ImageRegionMarker() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -43,7 +44,7 @@ function ImageRegionMarker() {
     // 加载图片
     const img = new Image()
     imageRef.current = img
-    img.src = 'http://localhost:3000/screenshots/demo.jpg' // 替换为你的图片路径
+    img.src = process.env.NODE_ENV === 'production' ? `/screenshots/screenshots.png?t=${Date.now()}` : `http://localhost:${WEB_SERVER_PORT}/screenshots/screenshots.png?t=${Date.now()}`
     img.onload = () => {
       canvas.width = img.width
       canvas.height = img.height

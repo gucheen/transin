@@ -5,6 +5,7 @@ import { attchOCRServiceToSocket, recognize } from './ocr'
 import { translateWithVolce } from './translation'
 import { attachWindowServiceToSocket, captureWindow, currentTargetWindow } from './capture'
 import type { Socket } from 'socket.io'
+import { WEB_SERVER_PORT } from './constant'
 
 const TranslationCache = new FlatCache({
   cacheId: 'translations',
@@ -64,7 +65,7 @@ export async function startJob(socket: Socket) {
     socket.emit('new-translation', {
       original: result.original,
       translated: result.translated,
-      screenshot: `http://localhost:3000/screenshots/screenshots.png?t=${Date.now()}`,
+      screenshot: `http://localhost:${WEB_SERVER_PORT}/screenshots/screenshots.png?t=${Date.now()}`,
     })
   }
   captureJobTimer = setTimeout(() => {
@@ -81,6 +82,7 @@ export function stopJob() {
 }
 
 const app = serve({
+  port: WEB_SERVER_PORT,
   async fetch(req) {
     const { pathname } = new URL(req.url)
     if (pathname.startsWith('/screenshots')) {
