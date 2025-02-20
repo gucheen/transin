@@ -1,9 +1,10 @@
 import { serve } from 'bun'
-import { Window } from 'node-screenshots'
 import { FlatCache } from 'flat-cache'
 import { io } from './io'
 import { attchOCRServiceToSocket, recognize } from './ocr'
 import { translateWithVolce } from './translation'
+import { attachWindowServiceToSocket, captureWindow, currentTargetWindow } from './capture'
+import type { Socket } from 'socket.io'
 
 const TranslationCache = new FlatCache({
   cacheId: 'translations',
@@ -11,23 +12,79 @@ const TranslationCache = new FlatCache({
 
 TranslationCache.load()
 
-let screenshot: Buffer
+let captureJobTimer: ReturnType<typeof setTimeout>|null = null
+let currentCaptureBuff: Buffer|null = null
 
-const windows = Window.all()
+async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
+  original: string,
+  translated: string,
+}> {
+  const { text } = await recognize(captureBuffer)
 
-for (const win of windows) {
-  if (win.title === 'demo') {
-    console.log(win.id)
-    const captureImage = await win.captureImage()
-    screenshot = await captureImage.toPng()
+  const unbreakText = text.replaceAll('\n', '')
+
+  const translateCache = TranslationCache.get<string>(unbreakText)
+
+  let translated = ''
+
+  if (translateCache) {
+    translated = translateCache
+  } else {
+    const translateReqParams = {
+      SourceLanguage: 'ja',
+      TargetLanguage: 'zh',
+      TextList: [unbreakText],
+    }
+    
+    const translateResult = await translateWithVolce(translateReqParams)
+    
+    console.log('translateResult >>>')
+    console.log(translateResult)
+    
+    translated = translateResult.TranslationList.map(t => t.Translation).join('')
+    
+    TranslationCache.set(unbreakText, translated)
+
+    TranslationCache.save()
   }
+
+  return {
+    original: unbreakText,
+    translated,
+  }
+}
+
+export async function startJob(socket: Socket) {
+  if (captureJobTimer) {
+    clearTimeout(captureJobTimer)
+  }
+  if (currentTargetWindow) {
+    currentCaptureBuff = await captureWindow(currentTargetWindow)
+    const result = await processCaptureBuffer(currentCaptureBuff)
+    socket.emit('new-translation', {
+      original: result.original,
+      translated: result.translated,
+      screenshot: `http://localhost:3000/screenshots/screenshots.png?t=${Date.now()}`,
+    })
+  }
+  captureJobTimer = setTimeout(() => {
+    captureJobTimer = null
+    startJob(socket)
+  }, 5000)
+}
+
+export function stopJob() {
+  if (captureJobTimer) {
+    clearTimeout(captureJobTimer)
+  }
+  currentCaptureBuff = null
 }
 
 const app = serve({
   async fetch(req) {
     const { pathname } = new URL(req.url)
     if (pathname.startsWith('/screenshots')) {
-      return new Response(screenshot, {
+      return new Response(currentCaptureBuff, {
         headers: {
           'Content-Type': 'image/png',
         },
@@ -46,40 +103,13 @@ io.on('connection', async (socket) => {
 
   attchOCRServiceToSocket(socket)
 
+  attachWindowServiceToSocket(socket)
+
   socket.on('trigger', async () => {
-    const { text } = await recognize(screenshot)
+    startJob(socket)
+  })
 
-    const unbreakText = text.replaceAll('\n', '')
-
-    const translateCache = TranslationCache.get<string>(unbreakText)
-
-    let translated = ''
-
-    if (translateCache) {
-      translated = translateCache
-    } else {
-      const translateReqParams = {
-        SourceLanguage: 'ja',
-        TargetLanguage: 'zh',
-        TextList: [unbreakText],
-      }
-      
-      const translateResult = await translateWithVolce(translateReqParams)
-      
-      console.log('translateResult >>>')
-      console.log(translateResult)
-      
-      translated = translateResult.TranslationList.map(t => t.Translation).join('')
-      
-      TranslationCache.set(unbreakText, translated)
-
-      TranslationCache.save()
-    }
-
-    socket.emit('new-translation', {
-      original: unbreakText,
-      translated,
-      screenshot: 'http://localhost:3000/screenshots/demo.jpg',
-    })
+  socket.on('stop', async () => {
+    stopJob()
   })
 })

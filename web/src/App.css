@@ -4,3 +4,32 @@ body {
   margin: 0;
   color: #ffffff;
 }
+
+.confirm-button {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+  transition: all 0.2s ease;
+}
+
+.confirm-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(79, 70, 229, 0.25);
+}
+
+.confirm-button:active {
+  transform: translateY(0);
+  background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+}
+
+a.confirm-button {
+  text-decoration: none;
+  text-align: center;
+}
