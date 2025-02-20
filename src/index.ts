@@ -29,7 +29,7 @@ const app = serve({
     if (pathname.startsWith('/screenshots')) {
       return new Response(screenshot, {
         headers: {
-          'Content-Type': 'image/jpeg',
+          'Content-Type': 'image/png',
         },
       })
     }
