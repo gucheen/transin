@@ -1,5 +1,6 @@
 import { serve } from 'bun'
 import { FlatCache } from 'flat-cache'
+import path from 'path'
 import { io } from './io'
 import { attchOCRServiceToSocket, recognize } from './ocr'
 import { translateWithVolce } from './translation'
@@ -100,8 +101,11 @@ const app = serve({
       })
     }
 
-    // Return 404 for unmatched routes
-    return new Response("Not Found", { status: 404 });
+    const p = path.parse(pathname)
+    if (p.dir === '/assets') {
+      return new Response(Bun.file(path.join('./web/dist/assets', p.base)))
+    }
+    return new Response(Bun.file('./web/dist/index.html'))
   },
 })
 
