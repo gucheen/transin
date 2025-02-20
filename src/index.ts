@@ -86,6 +86,13 @@ const app = serve({
   async fetch(req) {
     const { pathname } = new URL(req.url)
     if (pathname.startsWith('/screenshots')) {
+      if (!currentCaptureBuff) {
+        if (currentTargetWindow) {
+          currentCaptureBuff = await captureWindow(currentTargetWindow)
+        } else {
+          return new Response('Not Found', { status: 404 });
+        }
+      }
       return new Response(currentCaptureBuff, {
         headers: {
           'Content-Type': 'image/png',
