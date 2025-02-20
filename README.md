@@ -4,7 +4,7 @@ Transin is an experimental project I made to translate text from games that in g
 
 ## Preview
 
-![Transin UI Preview](demo.jpg)
+![Transin UI Preview](preview.png)
 
 ## Design
 
