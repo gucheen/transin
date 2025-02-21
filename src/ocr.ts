@@ -1,4 +1,4 @@
-import { createWorker, type ImageLike } from 'tesseract.js'
+import { createWorker } from 'tesseract.js'
 import type { Socket } from 'socket.io'
 import sharp from 'sharp'
 
@@ -9,6 +9,22 @@ let rectangle: {
   height: number
 }
 let scale = 1
+
+export function setRecogonizeOptions(payload: {
+  top: number
+  left: number
+  width: number
+  height: number
+  scale: number
+}) {
+  scale = payload.scale ?? 1
+  rectangle = {
+    top: payload.top,
+    left: payload.left,
+    width: payload.width,
+    height: payload.height,
+  }
+}
 
 export const worker = await createWorker('jpn', 1, {
   logger: (m) => console.log(m),
@@ -23,13 +39,7 @@ export function attchOCRServiceToSocket(socket: Socket) {
     scale: number
   }) => {
     console.log('settings:update-ocr-recognize-area', payload)
-    scale = payload.scale ?? 1
-    rectangle = {
-      top: payload.top,
-      left: payload.left,
-      width: payload.width,
-      height: payload.height,
-    }
+    setRecogonizeOptions(payload)
   })
 
   socket.on('settings:get-ocr-recognize-area', (callback) => {

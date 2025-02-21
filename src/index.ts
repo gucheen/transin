@@ -32,13 +32,7 @@ async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
   if (translateCache) {
     translated = translateCache
   } else {
-    const translateReqParams = {
-      SourceLanguage: 'ja',
-      TargetLanguage: 'zh',
-      TextList: [unbreakText],
-    }
-    
-    const translateResult = await translateWithVolce(translateReqParams)
+    const translateResult = await translateWithVolce([unbreakText])
     
     console.log('translateResult >>>')
     console.log(translateResult)
