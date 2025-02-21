@@ -6,11 +6,6 @@ let rectangle: {
   left: number
   width: number
   height: number
-} = {
-  left: 115,
-  top: 306,
-  width: 261,
-  height: 57,
 }
 
 const worker = await createWorker('jpn', 1, {
