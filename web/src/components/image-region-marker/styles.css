@@ -1,6 +1,6 @@
 /* styles.css */
 .image-region-container {
-  max-width: 56rem;
+  max-width: 80rem;
   margin: 0 auto;
   padding: 1.5rem;
   background-color: #f9fafb;
@@ -34,3 +34,14 @@
 .coordinate-y { color: #2563eb }
 .dimension-width { color: #16a34a }
 .dimension-height { color: #16a34a }
+
+@media (min-width: 900px) {
+  .image-region-container {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .side-info {
+    flex: 0 0 200px;
+  }
+}
