@@ -2,12 +2,13 @@ import { serve } from 'bun'
 import { FlatCache } from 'flat-cache'
 import path from 'path'
 import { io } from './io'
-import { attchOCRServiceToSocket, recognize } from './ocr'
+import { attachOCRServiceToSocket, recognize } from './ocr'
 import { translateWithVolce } from './translation'
 import { attachWindowServiceToSocket, captureWindow, currentTargetWindow } from './capture'
 import type { Socket } from 'socket.io'
 import { WEB_SERVER_PORT } from './constant'
 
+// Local translation cache (using flat-cache)
 const TranslationCache = new FlatCache({
   cacheId: 'translations',
 })
@@ -17,6 +18,7 @@ TranslationCache.load()
 let captureJobTimer: ReturnType<typeof setTimeout>|null = null
 let currentCaptureBuff: Buffer|null = null
 
+// Core processing flow: Screenshot -> OCR -> Translation -> Caching
 async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
   original: string,
   translated: string,
@@ -50,6 +52,8 @@ async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
   }
 }
 
+// Scheduled task controls the screenshot capture and translation process
+// Start timed capture-translate job
 export async function startJob(socket: Socket) {
   if (captureJobTimer) {
     clearTimeout(captureJobTimer)
@@ -69,6 +73,7 @@ export async function startJob(socket: Socket) {
   }, 5000)
 }
 
+// Stop scheduled job
 export function stopJob() {
   if (captureJobTimer) {
     clearTimeout(captureJobTimer)
@@ -76,6 +81,8 @@ export function stopJob() {
   currentCaptureBuff = null
 }
 
+// Bun HTTP server configuration
+// Handle static assets and screenshot requests
 const app = serve({
   port: WEB_SERVER_PORT,
   async fetch(req) {
@@ -108,7 +115,7 @@ console.log(`Listening on :${app.port}`)
 io.on('connection', async (socket) => {
   console.log('new connected', socket.id)
 
-  attchOCRServiceToSocket(socket)
+  attachOCRServiceToSocket(socket)
 
   attachWindowServiceToSocket(socket)
 

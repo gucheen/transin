@@ -2,6 +2,7 @@ import { createWorker } from 'tesseract.js'
 import type { Socket } from 'socket.io'
 import sharp from 'sharp'
 
+// OCR recognition area configuration and scale factor
 let rectangle: {
   top: number
   left: number
@@ -10,6 +11,7 @@ let rectangle: {
 }
 let scale = 1
 
+// Configure OCR recognition area parameters
 export function setRecogonizeOptions(payload: {
   top: number
   left: number
@@ -26,11 +28,8 @@ export function setRecogonizeOptions(payload: {
   }
 }
 
-export const worker = await createWorker('jpn', 1, {
-  logger: (m) => console.log(m),
-})
-
-export function attchOCRServiceToSocket(socket: Socket) {
+// Attach OCR service to Socket.io communication
+export function attachOCRServiceToSocket(socket: Socket) {
   socket.on('settings:update-ocr-recognize-area', (payload: {
     top: number
     left: number
@@ -50,6 +49,12 @@ export function attchOCRServiceToSocket(socket: Socket) {
   })
 }
 
+// Initialize Tesseract OCR Worker (Japanese language)
+export const worker = await createWorker('jpn', 1, {
+  logger: (m) => console.log(m),
+})
+
+// Core OCR recognition with sharp image preprocessing
 export async function recognize(img: Buffer): Promise<{
   text: string
 }> {

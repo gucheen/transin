@@ -1,5 +1,6 @@
 import { Service } from '@volcengine/openapi'
 
+// Volcengine Translation Service configuration
 const translateService = new Service({
   serviceName: 'translate',
   host: 'translate.volcengineapi.com',
@@ -25,12 +26,14 @@ const volceTranslateAPI = translateService.createJSONAPI('TranslateText', {
   }[]
 }>
 
+// Japanese -> Chinese translation interface
 export const translateWithVolce = (texts: string[]) => volceTranslateAPI({
   SourceLanguage: 'ja',
   TargetLanguage: 'zh',
   TextList: texts,
 })
 
+// ZhiPu AI GLM4 translation interface definitions
 export interface GLM4Res {
   choices: Choice[]
   created: number
