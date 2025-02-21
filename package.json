@@ -16,6 +16,7 @@
     "@volcengine/openapi": "^1.27.1",
     "flat-cache": "^6.1.6",
     "node-screenshots": "0.2.3",
+    "sharp": "^0.33.5",
     "socket.io": "^4.8.1",
     "tesseract.js": "^6.0.0"
   }

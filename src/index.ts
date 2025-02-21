@@ -15,7 +15,7 @@ const TranslationCache = new FlatCache({
 TranslationCache.load()
 
 let captureJobTimer: ReturnType<typeof setTimeout>|null = null
-let currentCaptureBuff: Buffer|null = null
+let currentCaptureBuff: Buffer|null = Buffer.from(await Bun.file('test/demo2.png').arrayBuffer())
 
 async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
   original: string,
