@@ -25,25 +25,26 @@ async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
 }> {
   const { text } = await recognize(captureBuffer)
 
-  const unbreakText = text.replaceAll('\n', '')
-
-  const translateCache = TranslationCache.get<string>(unbreakText)
+  const unbreakText = text.replaceAll('\n', '').trim()
 
   let translated = ''
 
-  if (translateCache) {
-    translated = translateCache
-  } else {
-    const translateResult = await translateWithVolce([unbreakText])
+  if (unbreakText.length > 0) {
+    const translateCache = TranslationCache.get<string>(unbreakText)
+    if (translateCache) {
+      translated = translateCache
+    } else {
+      const translateResult = await translateWithVolce([unbreakText])
 
-    console.log('translateResult >>>')
-    console.log(translateResult)
+      console.log('translateResult >>>')
+      console.log(translateResult)
 
-    translated = translateResult.TranslationList.map(t => t.Translation).join('')
+      translated = translateResult.TranslationList.map(t => t.Translation).join('')
 
-    TranslationCache.set(unbreakText, translated)
+      TranslationCache.set(unbreakText, translated)
 
-    TranslationCache.save()
+      TranslationCache.save()
+    }
   }
 
   return {
