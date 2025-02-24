@@ -57,19 +57,26 @@ export const worker = await createWorker('jpn', 1, {
 // Core OCR recognition with sharp image preprocessing
 export async function recognize(img: Buffer): Promise<{
   text: string
+  OCRSourceImage: Buffer
 }> {
   console.time('recognize')
   const sharpImg = await sharp(img)
     .extract(rectangle)
     .resize(~~(rectangle.width * scale))
+    .flatten()
+    .normalise()
+    .greyscale()
+    .sharpen()
     .toBuffer()
   const { data: { text } } = await worker.recognize(sharpImg)
   console.timeEnd('recognize')
+
 
   console.log('ocr result >>> ')
   console.log(text)
 
   return {
     text,
+    OCRSourceImage: sharpImg,
   }
 }

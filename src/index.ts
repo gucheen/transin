@@ -16,14 +16,17 @@ const TranslationCache = new FlatCache({
 TranslationCache.load()
 
 let captureJobTimer: ReturnType<typeof setTimeout> | null = null
-let currentCaptureBuff: Buffer | null = null
+let currentCapture: Buffer | null = null
+let currentOCRImage: Buffer | null = null
 
 // Core processing flow: Screenshot -> OCR -> Translation -> Caching
 async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
   original: string,
   translated: string,
 }> {
-  const { text } = await recognize(captureBuffer)
+  const { text, OCRSourceImage } = await recognize(captureBuffer)
+
+  currentOCRImage = OCRSourceImage
 
   const unbreakText = text.replaceAll('\n', '').trim()
 
@@ -60,12 +63,12 @@ export async function startJob(socket: Socket) {
     clearTimeout(captureJobTimer)
   }
   if (currentTargetWindow) {
-    currentCaptureBuff = await captureWindow(currentTargetWindow)
-    const result = await processCaptureBuffer(currentCaptureBuff)
+    currentCapture = await captureWindow(currentTargetWindow)
+    const result = await processCaptureBuffer(currentCapture)
     socket.emit('new-translation', {
       original: result.original,
       translated: result.translated,
-      screenshot: `http://localhost:${WEB_SERVER_PORT}/screenshots/screenshots.png?t=${Date.now()}`,
+      screenshot: `http://localhost:${WEB_SERVER_PORT}/ocr/ocr.png?t=${Date.now()}`,
     })
   }
   captureJobTimer = setTimeout(() => {
@@ -79,7 +82,7 @@ export function stopJob() {
   if (captureJobTimer) {
     clearTimeout(captureJobTimer)
   }
-  currentCaptureBuff = null
+  currentCapture = null
 }
 
 // Bun HTTP server configuration
@@ -87,15 +90,22 @@ export function stopJob() {
 const app = serve({
   port: WEB_SERVER_PORT,
   routes: {
-    '/screenshots/*': async (req) => {
-      if (!currentCaptureBuff) {
+    '/screenshots/*': async () => {
+      if (!currentCapture) {
         if (currentTargetWindow) {
-          currentCaptureBuff = await captureWindow(currentTargetWindow)
+          currentCapture = await captureWindow(currentTargetWindow)
         } else {
           return new Response('Not Found', { status: 404 });
         }
       }
-      return new Response(currentCaptureBuff, {
+      return new Response(currentCapture, {
+        headers: {
+          'Content-Type': 'image/png',
+        },
+      })
+    },
+    '/ocr/*': async () => {
+      return new Response(currentOCRImage, {
         headers: {
           'Content-Type': 'image/png',
         },
