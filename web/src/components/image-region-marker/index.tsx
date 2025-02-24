@@ -3,78 +3,94 @@ import './styles.css'
 import { socket } from '../../io'
 import { WEB_SERVER_PORT } from '../../../../src/constant'
 
+interface Region {
+  id: number
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 function ImageRegionMarker() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const ctxRef = useRef<CanvasRenderingContext2D>(null)
-  const [currentPosition, setCurrentPosition] = useState({ x: 0, y: 0 })
+  const [regions, setRegions] = useState<Region[]>([])
   const isDrawing = useRef(false)
-  const [startPoint, setStartPoint] = useState({ x: 0, y: 0 })
+  const [activeRegion, setActiveRegion] = useState<{ start: { x: number, y: number }, current: { x: number, y: number } } | null>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const canvasScale = useRef(1)
   const [scaleValue, setScaleValue] = useState(1)
+  const regionIdCounter = useRef(1)
+  const lastActiveRegion = useRef<{ start: { x: number, y: number }, current: { x: number, y: number } } | null>(null)
 
   useEffect(() => {
-    // 绘制选择框
     const drawSelect = () => {
       if (ctxRef.current && canvasRef.current && imageRef.current) {
         ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
         ctxRef.current.drawImage(imageRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height)
-        if (currentPosition.x && currentPosition.y) {
-          const w = currentPosition.x - startPoint.x
-          const h = currentPosition.y - startPoint.y
-          if (w && h) {
-            ctxRef.current.strokeStyle = '#38f'
-            ctxRef.current.lineWidth = 2
-            ctxRef.current.strokeRect(startPoint.x, startPoint.y, w, h)
-          }
+
+        const fontSize = ~~(14 * canvasScale.current)
+        
+        // 绘制已存在的区域
+        regions.forEach(region => {
+          ctxRef.current!.strokeStyle = '#38f'
+          ctxRef.current!.lineWidth = 2
+          ctxRef.current!.strokeRect(region.x, region.y, region.width, region.height)
+          ctxRef.current!.fillStyle = '#38f'
+          ctxRef.current!.font = `${fontSize}px Arial`
+          ctxRef.current!.fillText(`#${region.id}`, region.x + fontSize - 20, region.y + fontSize)
+        })
+
+        // 绘制当前正在绘制的区域
+        if (activeRegion) {
+          const w = activeRegion.current.x - activeRegion.start.x
+          const h = activeRegion.current.y - activeRegion.start.y
+          ctxRef.current!.strokeStyle = '#f00'
+          ctxRef.current!.strokeRect(activeRegion.start.x, activeRegion.start.y, w, h)
+          lastActiveRegion.current = activeRegion
+        } else {
+          lastActiveRegion.current = null
         }
       }
     }
     drawSelect()
-  }, [startPoint, currentPosition])
+  }, [regions, activeRegion])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    // 创建一个2D绘图上下文
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
     const getInitialSelection = () => {
-      socket.emit('settings:get-ocr-recognize-area', (response: {
-        left: number,
-        top: number,
-        width: number,
-        height: number,
-        scale: number,
-      }) => {
+      socket.emit('settings:get-ocr-recognize-area', (response: any[]) => {
         if (response) {
-          setStartPoint({
-            x: response.left ?? 0,
-            y: response.top ?? 0,
-          })
-          setCurrentPosition({
-            x: typeof response.left === 'number' && typeof response.width === 'number' ? (response.left + response.width) : 0,
-            y: typeof response.top === 'number' && typeof response.height === 'number' ? (response.top + response.height) : 0,
-          })
-          setScaleValue(response.scale ?? 1)
+          const mapped = response.map(r => ({
+            id: regionIdCounter.current++,
+            x: r.left,
+            y: r.top,
+            width: r.width,
+            height: r.height
+          }))
+          setRegions(mapped)
+          setScaleValue(response[0]?.scale ?? 1)
         }
       })
     }
 
     ctxRef.current = ctx
 
-    // 加载图片
     const img = new Image()
     imageRef.current = img
-    img.src = process.env.NODE_ENV === 'production' ? `/screenshots/screenshots.png?t=${Date.now()}` : `http://localhost:${WEB_SERVER_PORT}/screenshots/screenshots.png?t=${Date.now()}`
+    img.src = process.env.NODE_ENV === 'production' 
+      ? `/screenshots/screenshots.png?t=${Date.now()}` 
+      : `http://localhost:${WEB_SERVER_PORT}/screenshots/screenshots.png?t=${Date.now()}`
     img.onload = () => {
       canvas.width = img.width
       canvas.height = img.height
       const { width, height } = canvas.getBoundingClientRect()
-      const calculateCanvasScale = Math.min(img.width / width, img.height / height)
-      canvasScale.current = calculateCanvasScale
+      canvasScale.current = Math.min(img.width / width, img.height / height)
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       getInitialSelection()
     }
@@ -84,52 +100,59 @@ function ImageRegionMarker() {
       const x = (e.clientX - rect.left) * canvasScale.current
       const y = (e.clientY - rect.top) * canvasScale.current
       isDrawing.current = true
-      setStartPoint({ x, y })
-      setCurrentPosition({ x, y })
+      setActiveRegion({ start: { x, y }, current: { x, y } })
     }
-
-    // 处理鼠标按下事件
-    canvas.addEventListener('mousedown', onMouseDown)
 
     const onMouseMove = (e: MouseEvent) => {
       if (!isDrawing.current) return
       const rect = canvas.getBoundingClientRect()
       const x = (e.clientX - rect.left) * canvasScale.current
       const y = (e.clientY - rect.top) * canvasScale.current
-      setCurrentPosition({
-        x,
-        y,
-      })
+      setActiveRegion(prev => prev ? { ...prev, current: { x, y } } : null)
     }
-
-    // 处理鼠标移动事件
-    canvas.addEventListener('mousemove', onMouseMove)
 
     const onMouseUp = () => {
+      if (lastActiveRegion.current) {
+        const { start, current } = lastActiveRegion.current
+        const newRegion = {
+          id: regionIdCounter.current++,
+          x: Math.min(start.x, current.x),
+          y: Math.min(start.y, current.y),
+          width: Math.abs(current.x - start.x),
+          height: Math.abs(current.y - start.y)
+        }
+        setRegions(prev => [...prev, newRegion])
+      }
       isDrawing.current = false
+      setActiveRegion(null)
     }
 
-    // 处理鼠标释放事件
+    canvas.addEventListener('mousedown', onMouseDown)
+    canvas.addEventListener('mousemove', onMouseMove)
     canvas.addEventListener('mouseup', onMouseUp)
 
     return () => {
       canvas.removeEventListener('mousedown', onMouseDown)
       canvas.removeEventListener('mousemove', onMouseMove)
       canvas.removeEventListener('mouseup', onMouseUp)
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
     }
   }, [])
 
+  const deleteRegion = (id: number) => {
+    setRegions(prev => prev.filter(r => r.id !== id))
+  }
+
   const submitAreaInfo = () => {
-    const payload = {
-      left: ~~Math.min(startPoint.x, currentPosition.x),
-      top: ~~Math.min(startPoint.y, currentPosition.y),
-      width: ~~Math.abs(currentPosition.x - startPoint.x),
-      height: ~~Math.abs(currentPosition.y - startPoint.y),
-      scale: scaleValue,
-    }
-    console.log(payload)
-    if (payload.width !== 0 && payload.height !== 0) {
+    if (regions.length > 0) {
+      const payload = {
+        regions: regions.map(region => ({
+          left: ~~region.x,
+          top: ~~region.y,
+          width: ~~region.width,
+          height: ~~region.height,
+        })),
+        scale: scaleValue,
+      }
       socket.emit('settings:update-ocr-recognize-area', payload)
     }
   }
@@ -154,17 +177,20 @@ function ImageRegionMarker() {
           />
         </div>
         <div className='selection-info'>
-          <div className='coordinate-text'>
-            x: <span className='coordinate-x'>{startPoint.x}</span>, y: <span className='coordinate-y'>{startPoint.y}</span>
-            <div>
-              width: <span className='dimension-width'>{currentPosition.x - startPoint.x}</span>
-            </div>
-            <div>
-              height: <span className='dimension-height'>{currentPosition.y - startPoint.y}</span>
-            </div>
+          <div className='regions-list'>
+            {regions.map(region => (
+              <div key={region.id} className='region-item'>
+                <span>区域 #{region.id}</span>
+                <button 
+                  className='delete-button'
+                  onClick={() => deleteRegion(region.id)}
+                >
+                  删除
+                </button>
+              </div>
+            ))}
           </div>
         </div>
-
         <button className='confirm-button' onClick={submitAreaInfo}>提交区域信息</button>
       </div>
     </div>

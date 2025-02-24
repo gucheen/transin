@@ -16,40 +16,53 @@ const TranslationCache = new FlatCache({
 TranslationCache.load()
 
 let captureJobTimer: ReturnType<typeof setTimeout> | null = null
-let currentCaptureBuff: Buffer | null = null
+let currentCapture: Buffer | null = null
+let currentOCRImages: Buffer[] | null = null
 
 // Core processing flow: Screenshot -> OCR -> Translation -> Caching
 async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
-  original: string,
-  translated: string,
+  original: string[],
+  translated: string[],
 }> {
-  const { text } = await recognize(captureBuffer)
+  const { texts, OCRSourceImages } = await recognize(captureBuffer)
 
-  const unbreakText = text.replaceAll('\n', '').trim()
+  currentOCRImages = OCRSourceImages
 
-  let translated = ''
+  const unbreakTexts = texts.map(text => text.replaceAll('\n', '').trim()).filter(text => text.length > 0)
 
-  if (unbreakText.length > 0) {
-    const translateCache = TranslationCache.get<string>(unbreakText)
-    if (translateCache) {
-      translated = translateCache
-    } else {
-      const translateResult = await translateWithVolce([unbreakText])
+  const translatedTexts: string[] = Array(unbreakTexts.length)
+  const untranslated: string[] = []
+  const unTranslatedPositionIndex: number[] = []
 
-      console.log('translateResult >>>')
-      console.log(translateResult)
+  if (unbreakTexts.length > 0) {
+    unbreakTexts.forEach((unbreakText, index) => {
+      const translateCache = TranslationCache.get<string>(unbreakText)
+      if (translateCache) {
+        translatedTexts[index] = translateCache
+      } else {
+        untranslated.push(unbreakText)
+        unTranslatedPositionIndex.push(index)
+      }
+    })
+  }
 
-      translated = translateResult.TranslationList.map(t => t.Translation).join('')
+  if (untranslated.length > 0) {
+    const translateResult = await translateWithVolce(untranslated)
 
-      TranslationCache.set(unbreakText, translated)
+    console.log('translateResult >>>')
+    console.log(translateResult)
 
-      TranslationCache.save()
-    }
+    translateResult.TranslationList.forEach((t, index) => {
+      translatedTexts[unTranslatedPositionIndex[index]] = t.Translation
+      TranslationCache.set(unbreakTexts[unTranslatedPositionIndex[index]], t.Translation)
+    })
+
+    TranslationCache.save()
   }
 
   return {
-    original: unbreakText,
-    translated,
+    original: unbreakTexts,
+    translated: translatedTexts,
   }
 }
 
@@ -60,12 +73,12 @@ export async function startJob(socket: Socket) {
     clearTimeout(captureJobTimer)
   }
   if (currentTargetWindow) {
-    currentCaptureBuff = await captureWindow(currentTargetWindow)
-    const result = await processCaptureBuffer(currentCaptureBuff)
+    currentCapture = await captureWindow(currentTargetWindow)
+    const result = await processCaptureBuffer(currentCapture)
     socket.emit('new-translation', {
-      original: result.original,
-      translated: result.translated,
-      screenshot: `http://localhost:${WEB_SERVER_PORT}/screenshots/screenshots.png?t=${Date.now()}`,
+      original: result.original.join('\n\n'),
+      translated: result.translated.join('\n\n'),
+      screenshots: currentOCRImages?.map((_, index) => `http://localhost:${WEB_SERVER_PORT}/ocr-source/${index}?t=${Date.now()}`),
     })
   }
   captureJobTimer = setTimeout(() => {
@@ -79,7 +92,7 @@ export function stopJob() {
   if (captureJobTimer) {
     clearTimeout(captureJobTimer)
   }
-  currentCaptureBuff = null
+  currentCapture = null
 }
 
 // Bun HTTP server configuration
@@ -87,19 +100,30 @@ export function stopJob() {
 const app = serve({
   port: WEB_SERVER_PORT,
   routes: {
-    '/screenshots/*': async (req) => {
-      if (!currentCaptureBuff) {
+    '/screenshots/*': async () => {
+      if (!currentCapture) {
         if (currentTargetWindow) {
-          currentCaptureBuff = await captureWindow(currentTargetWindow)
+          currentCapture = await captureWindow(currentTargetWindow)
         } else {
           return new Response('Not Found', { status: 404 });
         }
       }
-      return new Response(currentCaptureBuff, {
+      return new Response(currentCapture, {
         headers: {
           'Content-Type': 'image/png',
         },
       })
+    },
+    '/ocr-source/:imageIndex': async (req) => {
+      const index = Number(req.params.imageIndex)
+      if (Array.isArray(currentOCRImages) && index <= currentOCRImages.length) {
+        return new Response(currentOCRImages[Number(req.params.imageIndex)], {
+          headers: {
+            'Content-Type': 'image/png',
+          },
+        })
+      }
+      return new Response('Not Found', { status: 404 })
     },
     '/assets/*': async (req) => {
       const { pathname } = new URL(req.url)

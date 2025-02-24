@@ -5,10 +5,10 @@ import './styles.css'
 import { socket } from '../../io'
 
 function Main() {
-  const [connected, setConnected] = useState(false)
+  const [connected, setConnected] = useState(socket.connected)
   const [originalText, setOriginalText] = useState('')
   const [translatedText, setTranslatedText] = useState('')
-  const [screenshot, setScreenshot] = useState(null)
+  const [screenshots, setScreenshots] = useState<string[]>([])
 
   useEffect(() => {
     socket.once('connect', () => {
@@ -17,7 +17,11 @@ function Main() {
     socket.on('new-translation', (data) => {
       setOriginalText(data.original)
       setTranslatedText(data.translated)
-      setScreenshot(data.screenshot)
+      if (Array.isArray(data.screenshots)) {
+        setScreenshots(data.screenshots)
+      } else {
+        setScreenshots([])
+      }
     })
   }, [])
 
@@ -34,10 +38,20 @@ function Main() {
         <p className="original-text">{originalText}</p>
       </div>
 
-      {screenshot && (
+      {Array.isArray(screenshots) && screenshots.length > 0 && (
         <div className="card screenshot">
           <h3>截图预览</h3>
-          <img src={screenshot} alt="screenshot" />
+
+          {
+            screenshots.map((screenshot) => {
+              return (
+                <img
+                  key={screenshot}
+                  src={screenshot}
+                />
+              )
+            })
+          }
         </div>
       )}
 
