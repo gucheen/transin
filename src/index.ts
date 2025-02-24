@@ -46,17 +46,19 @@ async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
     })
   }
 
-  const translateResult = await translateWithVolce(untranslated)
+  if (untranslated.length > 0) {
+    const translateResult = await translateWithVolce(untranslated)
 
-  console.log('translateResult >>>')
-  console.log(translateResult)
+    console.log('translateResult >>>')
+    console.log(translateResult)
 
-  translateResult.TranslationList.forEach((t, index) => {
-    translatedTexts[unTranslatedPositionIndex[index]] = t.Translation
-    TranslationCache.set(unbreakTexts[unTranslatedPositionIndex[index]], t.Translation)
-  })
+    translateResult.TranslationList.forEach((t, index) => {
+      translatedTexts[unTranslatedPositionIndex[index]] = t.Translation
+      TranslationCache.set(unbreakTexts[unTranslatedPositionIndex[index]], t.Translation)
+    })
 
-  TranslationCache.save()
+    TranslationCache.save()
+  }
 
   return {
     original: unbreakTexts,
