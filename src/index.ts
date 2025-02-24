@@ -15,8 +15,8 @@ const TranslationCache = new FlatCache({
 
 TranslationCache.load()
 
-let captureJobTimer: ReturnType<typeof setTimeout>|null = null
-let currentCaptureBuff: Buffer|null = null
+let captureJobTimer: ReturnType<typeof setTimeout> | null = null
+let currentCaptureBuff: Buffer | null = null
 
 // Core processing flow: Screenshot -> OCR -> Translation -> Caching
 async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
@@ -35,12 +35,12 @@ async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
     translated = translateCache
   } else {
     const translateResult = await translateWithVolce([unbreakText])
-    
+
     console.log('translateResult >>>')
     console.log(translateResult)
-    
+
     translated = translateResult.TranslationList.map(t => t.Translation).join('')
-    
+
     TranslationCache.set(unbreakText, translated)
 
     TranslationCache.save()
@@ -85,9 +85,8 @@ export function stopJob() {
 // Handle static assets and screenshot requests
 const app = serve({
   port: WEB_SERVER_PORT,
-  async fetch(req) {
-    const { pathname } = new URL(req.url)
-    if (pathname.startsWith('/screenshots')) {
+  routes: {
+    '/screenshots/*': async (req) => {
       if (!currentCaptureBuff) {
         if (currentTargetWindow) {
           currentCaptureBuff = await captureWindow(currentTargetWindow)
@@ -100,12 +99,14 @@ const app = serve({
           'Content-Type': 'image/png',
         },
       })
-    }
-
-    const p = path.parse(pathname)
-    if (p.dir === '/assets') {
+    },
+    '/assets/*': async (req) => {
+      const { pathname } = new URL(req.url)
+      const p = path.parse(pathname)
       return new Response(Bun.file(path.join('./web/dist/assets', p.base)))
-    }
+    },
+  },
+  async fetch() {
     return new Response(Bun.file('./web/dist/index.html'))
   },
 })

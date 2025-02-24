@@ -15,6 +15,8 @@ Transin is an experimental project I made to translate text from games that in g
 
 ## Quick Start
 
+Install latest version of Bun(currently 1.2.3) first.
+
 ```bash
 bun install
 ```
