@@ -21,12 +21,15 @@ function ImageRegionMarker() {
   const canvasScale = useRef(1)
   const [scaleValue, setScaleValue] = useState(1)
   const regionIdCounter = useRef(1)
+  const lastActiveRegion = useRef<{ start: { x: number, y: number }, current: { x: number, y: number } } | null>(null)
 
   useEffect(() => {
     const drawSelect = () => {
       if (ctxRef.current && canvasRef.current && imageRef.current) {
         ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
         ctxRef.current.drawImage(imageRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height)
+
+        const fontSize = ~~(14 * canvasScale.current)
         
         // 绘制已存在的区域
         regions.forEach(region => {
@@ -34,8 +37,8 @@ function ImageRegionMarker() {
           ctxRef.current!.lineWidth = 2
           ctxRef.current!.strokeRect(region.x, region.y, region.width, region.height)
           ctxRef.current!.fillStyle = '#38f'
-          ctxRef.current!.font = '14px Arial'
-          ctxRef.current!.fillText(`#${region.id}`, region.x + 5, region.y + 15)
+          ctxRef.current!.font = `${fontSize}px Arial`
+          ctxRef.current!.fillText(`#${region.id}`, region.x + fontSize - 20, region.y + fontSize)
         })
 
         // 绘制当前正在绘制的区域
@@ -44,11 +47,14 @@ function ImageRegionMarker() {
           const h = activeRegion.current.y - activeRegion.start.y
           ctxRef.current!.strokeStyle = '#f00'
           ctxRef.current!.strokeRect(activeRegion.start.x, activeRegion.start.y, w, h)
+          lastActiveRegion.current = activeRegion
+        } else {
+          lastActiveRegion.current = null
         }
       }
     }
     drawSelect()
-  }, [regions, activeRegion])
+  }, [activeRegion])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -106,8 +112,8 @@ function ImageRegionMarker() {
     }
 
     const onMouseUp = () => {
-      if (activeRegion) {
-        const { start, current } = activeRegion
+      if (lastActiveRegion.current) {
+        const { start, current } = lastActiveRegion.current
         const newRegion = {
           id: regionIdCounter.current++,
           x: Math.min(start.x, current.x),
@@ -130,7 +136,7 @@ function ImageRegionMarker() {
       canvas.removeEventListener('mousemove', onMouseMove)
       canvas.removeEventListener('mouseup', onMouseUp)
     }
-  }, [activeRegion])
+  }, [])
 
   const deleteRegion = (id: number) => {
     setRegions(prev => prev.filter(r => r.id !== id))
