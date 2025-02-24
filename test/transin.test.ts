@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import { FlatCache } from 'flat-cache'
 import path from 'path'
 import sharp from 'sharp'
-import { attchOCRServiceToSocket, recognize, setRecogonizeOptions, worker } from '../src/ocr'
+import { attachOCRServiceToSocket, recognize, setRecogonizeOptions, worker } from '../src/ocr'
 import { translateWithVolce, translateWithZhiPuGLM4Flash } from '../src/translation'
 import { attachWindowServiceToSocket, captureWindow, currentTargetWindow } from '../src/capture'
 
@@ -14,24 +14,26 @@ import { attachWindowServiceToSocket, captureWindow, currentTargetWindow } from 
 // TranslationCache.load()
 
 setRecogonizeOptions({
-  left: 440,
-  top: 1043,
-  width: 929,
-  height: 201,
+  regions: [{
+    left: 440,
+    top: 1043,
+    width: 929,
+    height: 201,
+  }],
   scale: 0.5,
 })
 
 const testImg = Bun.file(path.join(__dirname, 'demo2.png'))
 const testImgBuffer = Buffer.from(await testImg.arrayBuffer())
-const { text } = await recognize(testImgBuffer)
+const { texts } = await recognize(testImgBuffer)
 
-console.log({text})
+console.log({ texts })
 
 test('OCR', () => {
-  expect(text).toBe('あら 、 王 子 様 !\nちょ っ と 勝負 し て いか な ぁ い ?\n')
+  expect(texts[0]).toBe('あら 、 王 子 様 !\nちょ っ と 勝負 し て いか な ぁ い ?\n')
 })
 console.time('translate')
-const translateResult = await translateWithVolce([text.replaceAll('\n', '')])
+const translateResult = await translateWithVolce(texts.map(text => text.replaceAll('\n', '').trim()))
 console.timeEnd('translate')
 console.log(translateResult)
 test('Translation', () => {

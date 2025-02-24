@@ -17,42 +17,50 @@ TranslationCache.load()
 
 let captureJobTimer: ReturnType<typeof setTimeout> | null = null
 let currentCapture: Buffer | null = null
-let currentOCRImage: Buffer | null = null
+let currentOCRImages: Buffer[] | null = null
 
 // Core processing flow: Screenshot -> OCR -> Translation -> Caching
 async function processCaptureBuffer(captureBuffer: Buffer): Promise<{
-  original: string,
-  translated: string,
+  original: string[],
+  translated: string[],
 }> {
-  const { text, OCRSourceImage } = await recognize(captureBuffer)
+  const { texts, OCRSourceImages } = await recognize(captureBuffer)
 
-  currentOCRImage = OCRSourceImage
+  currentOCRImages = OCRSourceImages
 
-  const unbreakText = text.replaceAll('\n', '').trim()
+  const unbreakTexts = texts.map(text => text.replaceAll('\n', '').trim()).filter(text => text.length > 0)
 
-  let translated = ''
+  const translatedTexts: string[] = Array(unbreakTexts.length)
+  const untranslated: string[] = []
+  const unTranslatedPositionIndex: number[] = []
 
-  if (unbreakText.length > 0) {
-    const translateCache = TranslationCache.get<string>(unbreakText)
-    if (translateCache) {
-      translated = translateCache
-    } else {
-      const translateResult = await translateWithVolce([unbreakText])
-
-      console.log('translateResult >>>')
-      console.log(translateResult)
-
-      translated = translateResult.TranslationList.map(t => t.Translation).join('')
-
-      TranslationCache.set(unbreakText, translated)
-
-      TranslationCache.save()
-    }
+  if (unbreakTexts.length > 0) {
+    unbreakTexts.forEach((unbreakText, index) => {
+      const translateCache = TranslationCache.get<string>(unbreakText)
+      if (translateCache) {
+        translatedTexts[index] = translateCache
+      } else {
+        untranslated.push(unbreakText)
+        unTranslatedPositionIndex.push(index)
+      }
+    })
   }
 
+  const translateResult = await translateWithVolce(untranslated)
+
+  console.log('translateResult >>>')
+  console.log(translateResult)
+
+  translateResult.TranslationList.forEach((t, index) => {
+    translatedTexts[unTranslatedPositionIndex[index]] = t.Translation
+    TranslationCache.set(unbreakTexts[unTranslatedPositionIndex[index]], t.Translation)
+  })
+
+  TranslationCache.save()
+
   return {
-    original: unbreakText,
-    translated,
+    original: unbreakTexts,
+    translated: translatedTexts,
   }
 }
 
@@ -66,9 +74,9 @@ export async function startJob(socket: Socket) {
     currentCapture = await captureWindow(currentTargetWindow)
     const result = await processCaptureBuffer(currentCapture)
     socket.emit('new-translation', {
-      original: result.original,
-      translated: result.translated,
-      screenshot: `http://localhost:${WEB_SERVER_PORT}/ocr/ocr.png?t=${Date.now()}`,
+      original: result.original.join('\n\n'),
+      translated: result.translated.join('\n\n'),
+      screenshots: currentOCRImages?.map((_, index) => `http://localhost:${WEB_SERVER_PORT}/ocr-source/${index}?t=${Date.now()}`),
     })
   }
   captureJobTimer = setTimeout(() => {
@@ -104,12 +112,16 @@ const app = serve({
         },
       })
     },
-    '/ocr/*': async () => {
-      return new Response(currentOCRImage, {
-        headers: {
-          'Content-Type': 'image/png',
-        },
-      })
+    '/ocr-source/:imageIndex': async (req) => {
+      const index = Number(req.params.imageIndex)
+      if (Array.isArray(currentOCRImages) && index <= currentOCRImages.length) {
+        return new Response(currentOCRImages[Number(req.params.imageIndex)], {
+          headers: {
+            'Content-Type': 'image/png',
+          },
+        })
+      }
+      return new Response('Not Found', { status: 404 })
     },
     '/assets/*': async (req) => {
       const { pathname } = new URL(req.url)
