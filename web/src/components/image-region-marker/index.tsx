@@ -54,7 +54,7 @@ function ImageRegionMarker() {
       }
     }
     drawSelect()
-  }, [activeRegion])
+  }, [regions, activeRegion])
 
   useEffect(() => {
     const canvas = canvasRef.current
