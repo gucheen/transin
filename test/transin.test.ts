@@ -14,12 +14,20 @@ import { attachWindowServiceToSocket, captureWindow, currentTargetWindow } from 
 // TranslationCache.load()
 
 setRecogonizeOptions({
-  regions: [{
-    left: 440,
-    top: 1043,
-    width: 929,
-    height: 201,
-  }],
+  regions: [
+    {
+      left: 440,
+      top: 943,
+      width: 929,
+      height: 70,
+    },
+    {
+      left: 440,
+      top: 1043,
+      width: 929,
+      height: 201,
+    },
+  ],
   scale: 0.5,
 })
 
@@ -30,14 +38,16 @@ const { texts } = await recognize(testImgBuffer)
 console.log({ texts })
 
 test('OCR', () => {
-  expect(texts[0]).toBe('あら 、 王 子 様 !\nちょ っ と 勝負 し て いか な ぁ い ?\n')
+  expect(texts[0]).toBe('リン ファ\n')
+  expect(texts[1]).toBe('あら 、 王 子 様 !\nちょ っ と 勝負 し て いか な ぁ い ?\n')
 })
 console.time('translate')
 const translateResult = await translateWithVolce(texts.map(text => text.replaceAll('\n', '').trim()))
 console.timeEnd('translate')
 console.log(translateResult)
 test('Translation', () => {
-  expect(translateResult.TranslationList[0].Translation).toBe('哎呀，王子殿下!要不要来一场比赛?')
+  expect(translateResult.TranslationList[0].Translation).toBe('林法')
+  expect(translateResult.TranslationList[1].Translation).toBe('哎呀，王子殿下!要不要来一场比赛?')
 })
 
 await worker.terminate()
