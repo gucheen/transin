@@ -1,5 +1,7 @@
 # Transin
 
+[![build and testing](https://github.com/gucheen/transin/actions/workflows/build-and-testing.yml/badge.svg?event=push)](https://github.com/gucheen/transin/actions/workflows/build-and-testing.yml)
+
 Transin is an experimental project I made to translate text from games that in game console emulator(eg. PCSX2).
 
 ## Preview
