@@ -12,3 +12,6 @@ jobs:
           bun-version: latest
       - run: bun install
       - run: bun test
+        env:
+          VOLC_ACCESSKEY: ${{ secrets.VOLC_ACCESSKEY }}
+          VOLC_SECRETKEY: ${{ secrets.VOLC_SECRETKEY }}
