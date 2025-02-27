@@ -136,7 +136,7 @@ const app = serve({
   },
 })
 
-console.log(`Server running at :${app.url}`)
+console.log(`Server running at ${app.url}`)
 
 io.on('connection', async (socket) => {
   console.log('new connected', socket.id)
